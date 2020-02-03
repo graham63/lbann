@@ -41,6 +41,7 @@
 #include "lbann/layers/io/input/input_layer.hpp"
 #include "lbann/layers/io/io_layer.hpp"
 #include "lbann/layers/learning/base_convolution.hpp"
+#include "lbann/layers/learning/channelwise_fully_connected.hpp"
 #include "lbann/layers/learning/channelwise_scale_bias.hpp"
 #include "lbann/layers/learning/convolution.hpp"
 #include "lbann/layers/learning/deconvolution.hpp"
@@ -61,6 +62,7 @@
 #include "lbann/layers/math/matmul.hpp"
 #include "lbann/layers/math/unary.hpp"
 #include "lbann/layers/misc/channelwise_mean.hpp"
+#include "lbann/layers/misc/channelwise_softmax.hpp"
 #include "lbann/layers/misc/covariance.hpp"
 #include "lbann/layers/misc/mini_batch_index.hpp"
 #include "lbann/layers/misc/mini_batch_size.hpp"
@@ -75,6 +77,7 @@
 #include "lbann/layers/regularizers/selu_dropout.hpp"
 #include "lbann/layers/regularizers/entrywise_batch_normalization.hpp"
 #include "lbann/layers/regularizers/layer_norm.hpp"
+#include "lbann/layers/regularizers/instance_norm.hpp"
 #include "lbann/layers/transform/bernoulli.hpp"
 #include "lbann/layers/transform/categorical_random.hpp"
 #include "lbann/layers/transform/concatenate.hpp"
@@ -158,6 +161,7 @@ private:
 
     // Learning layers
     LBANN_REGISTER_BUILDER(Convolution, convolution);
+    LBANN_REGISTER_BUILDER(ChannelwiseFullyConnected, channelwise_fully_connected);
     LBANN_REGISTER_BUILDER(ChannelwiseScaleBias, channelwise_scale_bias);
     LBANN_REGISTER_BUILDER(Embedding, embedding);
     LBANN_REGISTER_BUILDER(EntrywiseScaleBias, entrywise_scale_bias);
@@ -252,7 +256,11 @@ private:
     LBANN_REGISTER_DEFAULT_BUILDER(MeanSquaredError, mean_squared_error);
     LBANN_REGISTER_DEFAULT_BUILDER(SigmoidBinaryCrossEntropy, sigmoid_binary_cross_entropy);
 
+    // Regularizer layers
+    LBANN_REGISTER_BUILDER(InstanceNorm, instance_norm);
+
     // Miscellaneous layers
+    LBANN_REGISTER_BUILDER(ChannelwiseSoftmax, channelwise_softmax);
     LBANN_REGISTER_DEFAULT_BUILDER(MiniBatchIndex, mini_batch_index);
     LBANN_REGISTER_DEFAULT_BUILDER(MiniBatchSize, mini_batch_size);
 

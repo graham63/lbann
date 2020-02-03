@@ -90,6 +90,7 @@ message Layer {
     Embedding embedding = 328;
     ChannelwiseScaleBias channelwise_scale_bias = 329;
     EntrywiseScaleBias entrywise_scale_bias = 330;
+    ChannelwiseFullyConnected channelwise_fully_connected = 331;
 
     // Loss layers
     CrossEntropy cross_entropy = 60;
@@ -163,6 +164,7 @@ message Layer {
     SeluDropout selu_dropout = 229;
     EntrywiseBatchNormalization entrywise_batch_normalization = 230;
     LayerNorm layer_norm = 231;
+    InstanceNorm instance_norm = 232;
 
     // Activation layers
     Elu elu = 200;
@@ -189,6 +191,7 @@ message Layer {
     Argmax argmax = 605;
     Argmin argmin = 606;
     OneHot one_hot = 607;
+    ChannelwiseSoftmax channelwise_softmax = 608;
 
   }
 
@@ -362,6 +365,13 @@ message Layer {
    *  reproduce that functionality.
    */
   message LayerNorm {
+    /** @brief Small number to avoid division by zero.
+     *  @details Default is 1e-5.
+     */
+    google.protobuf.DoubleValue epsilon = 1;
+  }
+
+  message InstanceNorm {
     /** @brief Small number to avoid division by zero.
      *  @details Default is 1e-5.
      */
@@ -604,6 +614,25 @@ message Layer {
   message ChannelwiseScaleBias {}
   message EntrywiseScaleBias {}
 
+  /** @brief Apply affine transformation to tensor channels.
+   *
+   *  The input tensor is sliced along the first tensor dimension (the
+   *  "channel" dimension for image data in CHW format) and the same
+   *  affine transformation is applied to each slice. Following a
+   *  row-vector convention:
+   *    @f[ y(i,*) = \text{vec}( x(i,*) ) W^T + b @f]
+   *
+   *  Two weights are required: the linearity and the bias. If weights
+   *  aren't provided, the linearity weights are initialized with He
+   *  normal initialization and the bias weights are initialized to
+   *  zero.
+   *
+   */
+  message ChannelwiseFullyConnected {
+    /// Output tensor dimensions, excluding the first dimension
+    repeated uint64 output_channel_dims = 1;
+  }
+
   //////////////////
   // Image layers //
   //////////////////
@@ -649,7 +678,9 @@ message Layer {
     int64 size = 1;
   }
 
-}// message Layer
+  message ChannelwiseSoftmax {}
+
+} // message Layer
 
 //note: I'd like to put this enum inside of Layer, but if I do the enum values
 //      become, e.g, Layer_Imcomm_EXCLUDE, which is just ugly

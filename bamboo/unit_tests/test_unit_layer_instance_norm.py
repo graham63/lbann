@@ -4,7 +4,6 @@ import os
 import os.path
 import sys
 import numpy as np
-import pytest
 
 # Bamboo utilities
 current_file = os.path.realpath(__file__)
@@ -19,11 +18,11 @@ import tools
 # the functions below to ingest data.
 
 # Data
-np.random.seed(20190708)
-_num_samples = 29
-_sample_dims = (7,5,3)
+np.random.seed(20200107)
+_num_samples = 15
+_sample_dims = (5,3,7)
 _sample_size = functools.reduce(operator.mul, _sample_dims)
-_samples = np.random.normal(size=(_num_samples,_sample_size)).astype(np.float32)
+_samples = np.random.normal(loc=0.5, size=(_num_samples,_sample_size)).astype(np.float32)
 
 # Sample access functions
 def get_sample(index):
@@ -32,6 +31,18 @@ def num_samples():
     return _num_samples
 def sample_dims():
     return (_sample_size,)
+
+# ==============================================
+# NumPy implementation
+# ==============================================
+
+def numpy_instance_norm(x, epsilon=1e-5):
+    if x.dtype is not np.float64:
+        x = x.astype(np.float64)
+    axes = tuple(range(1,x.ndim))
+    mean = np.mean(x, axis=axes, keepdims=True)
+    var = np.var(x, ddof=1, axis=axes, keepdims=True)
+    return (x - mean) / np.sqrt(var + epsilon)
 
 # ==============================================
 # Setup LBANN experiment
@@ -75,30 +86,23 @@ def construct_model(lbann):
     metrics = []
     callbacks = []
 
-    # --------------------------
-    # Slice along axis 0
-    # --------------------------
+    # ------------------------------------------
+    # Data-parallel layout
+    # ------------------------------------------
 
     # LBANN implementation
-    slice_points = (2, 3, 6, 7)
     x = x_lbann
-    x_slice = lbann.Slice(x, axis=0, slice_points=tools.str_list(slice_points))
-    y = []
-    for _ in range(len(slice_points)-1):
-        y.append(lbann.L2Norm2(x_slice))
-    z = lbann.Add(y[0], y[2])
+    y = lbann.InstanceNorm(x, data_layout='data_parallel')
+    z = lbann.L2Norm2(y)
     obj.append(z)
-    metrics.append(lbann.Metric(z, name='axis0'))
+    metrics.append(lbann.Metric(z, name='data-parallel layout'))
 
     # NumPy implementation
     vals = []
     for i in range(num_samples()):
         x = get_sample(i).reshape(_sample_dims).astype(np.float64)
-        y = []
-        for j in range(len(slice_points)-1):
-            x_slice = x[slice_points[j]:slice_points[j+1],:,:]
-            y.append(tools.numpy_l2norm2(x_slice))
-        z = y[0] + y[2]
+        y = numpy_instance_norm(x)
+        z = tools.numpy_l2norm2(y)
         vals.append(z)
     val = np.mean(vals)
     tol = 8 * val * np.finfo(np.float32).eps
@@ -109,118 +113,15 @@ def construct_model(lbann):
         error_on_failure=True,
         execution_modes='test'))
 
-    # --------------------------
-    # Slice along axis 1
-    # --------------------------
-
-    # LBANN implementation
-    slice_points = (0, 2, 3, 4)
-    x = x_lbann
-    x_slice = lbann.Slice(x, axis=1, slice_points=tools.str_list(slice_points))
-    y = []
-    for _ in range(len(slice_points)-1):
-        y.append(lbann.L2Norm2(x_slice))
-    z = lbann.Add(y[0], y[2])
-    obj.append(z)
-    metrics.append(lbann.Metric(z, name='axis1'))
-
-    # NumPy implementation
-    vals = []
-    for i in range(num_samples()):
-        x = get_sample(i).reshape(_sample_dims).astype(np.float64)
-        y = []
-        for j in range(len(slice_points)-1):
-            x_slice = x[:,slice_points[j]:slice_points[j+1],:]
-            y.append(tools.numpy_l2norm2(x_slice))
-        z = y[0] + y[2]
-        vals.append(z)
-    val = np.mean(vals)
-    tol = 8 * val * np.finfo(np.float32).eps
-    callbacks.append(lbann.CallbackCheckMetric(
-        metric=metrics[-1].name,
-        lower_bound=val-tol,
-        upper_bound=val+tol,
-        error_on_failure=True,
-        execution_modes='test'))
-
-    # --------------------------
-    # Slice along axis 2
-    # --------------------------
-
-    # LBANN implementation
-    slice_points = (1, 3)
-    x = x_lbann
-    x_slice = lbann.Slice(x, axis=2, slice_points=tools.str_list(slice_points))
-    y = []
-    for _ in range(len(slice_points)-1):
-        y.append(lbann.L2Norm2(x_slice))
-    z = y[0]
-    obj.append(z)
-    metrics.append(lbann.Metric(z, name='axis2'))
-
-    # NumPy implementation
-    vals = []
-    for i in range(num_samples()):
-        x = get_sample(i).reshape(_sample_dims).astype(np.float64)
-        y = []
-        for j in range(len(slice_points)-1):
-            x_slice = x[:,:,slice_points[j]:slice_points[j+1]]
-            y.append(tools.numpy_l2norm2(x_slice))
-        z = y[0]
-        vals.append(z)
-    val = np.mean(vals)
-    tol = 8 * val * np.finfo(np.float32).eps
-    callbacks.append(lbann.CallbackCheckMetric(
-        metric=metrics[-1].name,
-        lower_bound=val-tol,
-        upper_bound=val+tol,
-        error_on_failure=True,
-        execution_modes='test'))
-
-    # --------------------------
-    # Model-parallel
-    # --------------------------
-
-    # LBANN implementation
-    slice_points = (31, 54, 56, 57)
-    x = lbann.Reshape(x_lbann, dims=tools.str_list([105]))
-    x_slice = lbann.Slice(x, slice_points=tools.str_list(slice_points),
-                          data_layout='model_parallel')
-    y = []
-    for _ in range(len(slice_points)-1):
-        y.append(lbann.L2Norm2(x_slice))
-    z = lbann.Add(y[0], y[2])
-    obj.append(z)
-    metrics.append(lbann.Metric(z, name='model-parallel'))
-
-    # NumPy implementation
-    vals = []
-    for i in range(num_samples()):
-        x = get_sample(i).reshape(-1).astype(np.float64)
-        y = []
-        for j in range(len(slice_points)-1):
-            x_slice = x[slice_points[j]:slice_points[j+1]]
-            y.append(tools.numpy_l2norm2(x_slice))
-        z = y[0] + y[2]
-        vals.append(z)
-    val = np.mean(vals)
-    tol = 8 * val * np.finfo(np.float32).eps
-    callbacks.append(lbann.CallbackCheckMetric(
-        metric=metrics[-1].name,
-        lower_bound=val-tol,
-        upper_bound=val+tol,
-        error_on_failure=True,
-        execution_modes='test'))
-
-    # --------------------------
+    # ------------------------------------------
     # Gradient checking
-    # --------------------------
+    # ------------------------------------------
 
     callbacks.append(lbann.CallbackCheckGradients(error_on_failure=True))
 
-    # --------------------------
+    # ------------------------------------------
     # Construct model
-    # --------------------------
+    # ------------------------------------------
 
     mini_batch_size = num_samples() // 2
     num_epochs = 0
