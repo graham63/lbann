@@ -57,17 +57,9 @@ parser.add_argument(
 parser.add_argument(
     '--num-epochs', action='store', default=1, type=int,
     help='number of epochs (default: 1)', metavar='NUM')
-# FIXME: Do I need this?
-parser.add_argument(
-    '--num-classes', action='store', default=10, type=int,
-    help='number of mnist classes (default: 10)', metavar='NUM')
 parser.add_argument(
     '--random-seed', action='store', default=0, type=int,
     help='random seed for LBANN RNGs', metavar='NUM')
-# FIXME: Do I need this?
-parser.add_argument(
-    '--super-steps', action='store', default=100000, type=int,
-    help='number of super steps', metavar='NUM')
 
 lbann.contrib.args.add_optimizer_arguments(parser, default_learning_rate=0.1)
 args = parser.parse_args()
@@ -179,7 +171,7 @@ reshape1 = lbann.Reshape(fc4_tanh,
 zero_fake = lbann.Multiply([reshape1, in_first_half], name="zero_fake")
 
 # Sum
-sum = lbann.Sum([zero_data, zero_fake], name="sum")
+sum1 = lbann.Sum([zero_data, zero_fake], name="sum1")
 
 # Discriminator Model
 
@@ -187,7 +179,7 @@ dis_flatten_weights = lbann.Weights(name="dis_flatten_weights",
                                     optimizer=lbann.NoOptimizer(),
                                     initializer=lbann.HeNormalInitializer())
 
-dis_flatten_proxy = lbann.FullyConnected(sum,
+dis_flatten_proxy = lbann.FullyConnected(sum1,
                                          name="dis_flatten_proxy",
                                          weights=dis_flatten_weights,
                                          num_neurons=784,
@@ -253,8 +245,8 @@ metrics = [lbann.Metric(accuracy, name="accuracy", unit="%")]
 callbacks = [lbann.CallbackPrint(),
              lbann.CallbackTimer(),
              lbann.CallbackDumpOutputs(directory=".",
-                               #layers=[fc4_tanh, data, sum, sigmoid2],
-                               layers=[fc4_tanh, sum],
+                               #layers=[fc4_tanh, data, sum1, sigmoid2],
+                               layers=[fc4_tanh, sum1],
                                #batch_interval=844,
                                execution_modes="test"),
              lbann.CallbackSaveImages(layers="image reconstruction",
@@ -272,9 +264,9 @@ model = lbann.Model(args.num_epochs,
 opt = lbann.contrib.args.create_optimizer(args)
 
 # Setup data reader
-data_reader = gan.make_data_reader(num_classes=args.num_classes)
+data_reader = gan.make_data_reader()
 
-# Setup trainer
+# Setup trainr
 trainer = lbann.Trainer(mini_batch_size=args.mini_batch_size)
 
 # Run experiment
