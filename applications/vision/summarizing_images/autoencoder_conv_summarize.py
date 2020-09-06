@@ -54,7 +54,7 @@ parser = argparse.ArgumentParser(description=desc)
 lbann.contrib.args.add_scheduler_arguments(parser)
 parser.add_argument(
     '--job-name', action='store', default='lbann_image_ae', type=str,
-    help='scheduler job name (default: lbann_resnet)')
+    help='scheduler job name (default: lbann_image_ae)')
 parser.add_argument(
     '--mini-batch-size', action='store', default=256, type=int,
     help='mini-batch size (default: 256)', metavar='NUM')
